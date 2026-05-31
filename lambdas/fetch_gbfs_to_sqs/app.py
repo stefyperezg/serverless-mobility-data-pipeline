@@ -23,5 +23,3 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'body': json.dumps('GBFS data sent to SQS')
     }
-
-lambda_handler(None, None)

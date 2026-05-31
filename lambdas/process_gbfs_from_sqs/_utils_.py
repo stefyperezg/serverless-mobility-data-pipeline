@@ -20,7 +20,6 @@ def load_selected_stations():
         return {int(row["station_id"]) for row in reader}
 
 def format_filter_stations (stations_status_res, selected_station_ids):
-    city = os.environ.get('CITY_ID', 'unknown_city')
     filtered_stations_status = []
     for s in stations_status_res:
         try:
@@ -30,7 +29,6 @@ def format_filter_stations (stations_status_res, selected_station_ids):
 
         if station_id in selected_station_ids:
             s['status_uuid'] = str(uuid.uuid4())
-            s['city'] = city
             filtered_stations_status.append(s)
 
     #sort by station_id
