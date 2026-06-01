@@ -9,23 +9,41 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_glue as glue,
+    aws_athena as athena,
     RemovalPolicy,
     Duration
 )
 from constructs import Construct
 
-s3_prefix = os.environ.get("S3_PREFIX", "gbfs/")
-city_id = os.environ.get("CITY_ID", "unknown_city")
+
 
 class GbfsStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs):
         super().__init__(scope, id, **kwargs)
 
+        s3_prefix = os.environ["S3_PREFIX"]
+        s3_bucket = os.environ["S3_BUCKET"]
+        city_id = os.environ["CITY_ID"]
+        gbfs_url = os.environ["GBFS_URL"]
+        selected_stations_file = os.environ["SELECTED_STATIONS_FILE"]
+        glue_database_name = os.environ["GLUE_DATABASE_NAME"]
+
         # S3 bucket with retention
         bucket = s3.Bucket(self, "GbfsDataBucket",
-            bucket_name=os.environ.get("S3_BUCKET"), 
+            bucket_name=s3_bucket, 
             removal_policy=RemovalPolicy.RETAIN,
             auto_delete_objects=False
+        )
+        athena_workgroup = athena.CfnWorkGroup(
+            self, "GbfsAthenaWorkGroup",
+            name="GbfsAthenaWorkGroup",
+            state="ENABLED",
+            work_group_configuration=athena.CfnWorkGroup.WorkGroupConfigurationProperty(
+                result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
+                    output_location=f"s3://{bucket.bucket_name}/athena-results/"
+                ),
+                enforce_work_group_configuration=True       
+            )
         )
 
         # SQS queue
@@ -33,6 +51,7 @@ class GbfsStack(Stack):
         queue = sqs.Queue(
             self, 
             "GbfsRawDataQueue",
+            visibility_timeout=Duration.seconds(90),
             dead_letter_queue=sqs.DeadLetterQueue(
                 max_receive_count=5,
                 queue=dlq
@@ -44,7 +63,7 @@ class GbfsStack(Stack):
             self, "FetchGbfsToSqsFunction",
             code=_lambda.DockerImageCode.from_image_asset("../lambdas/fetch_gbfs_to_sqs"),
             environment={
-                "GBFS_URL": os.environ.get("GBFS_URL"),
+                "GBFS_URL": gbfs_url,
                 "QUEUE_URL": queue.queue_url
             },
             timeout=Duration.seconds(30),
@@ -60,7 +79,7 @@ class GbfsStack(Stack):
                 "S3_BUCKET": bucket.bucket_name,
                 "S3_PREFIX": s3_prefix,
                 "CITY_ID": city_id,
-                "SELECTED_STATIONS_FILE": os.environ.get("SELECTED_STATIONS_FILE", "selected_stations.csv")   
+                "SELECTED_STATIONS_FILE": selected_stations_file
             },
             timeout=Duration.seconds(60),
             memory_size=256
@@ -83,14 +102,14 @@ class GbfsStack(Stack):
             self, "GbfsDatabase",
             catalog_id=self.account,
             database_input=glue.CfnDatabase.DatabaseInputProperty(
-                name=os.environ.get("GLUE_DATABASE_NAME")
+                name=glue_database_name
             )
         )
 
         table = glue.CfnTable(
             self, "GbfsStationStatusTable",
             catalog_id=self.account,
-            database_name=os.environ.get("GLUE_DATABASE_NAME"),
+            database_name=glue_database_name,
             table_input=glue.CfnTable.TableInputProperty(
                 name="gbfs_station_status",
                 table_type="EXTERNAL_TABLE",
@@ -118,7 +137,7 @@ class GbfsStack(Stack):
                 storage_descriptor=glue.CfnTable.StorageDescriptorProperty(
                     columns=[
                         glue.CfnTable.ColumnProperty(name="status_uuid", type="string"),
-                        glue.CfnTable.ColumnProperty(name="station_id", type="int"),
+                        glue.CfnTable.ColumnProperty(name="station_id", type="string"),
                         glue.CfnTable.ColumnProperty(name="num_bikes_available", type="int"),
                         glue.CfnTable.ColumnProperty(name="num_docks_available", type="int"),
                         glue.CfnTable.ColumnProperty(name="is_renting", type="boolean"),
@@ -135,14 +154,14 @@ class GbfsStack(Stack):
                             "serialization.format": "1"
                         }   
                     )
-                )   
-            ),
-            partition_keys=[
-                glue.CfnTable.ColumnProperty(name="city", type="string"),
-                glue.CfnTable.ColumnProperty(name="year", type="int"),
-                glue.CfnTable.ColumnProperty(name="month", type="int"),
-                glue.CfnTable.ColumnProperty(name="day", type="int")
-            ]
+                ),   
+                partition_keys=[
+                    glue.CfnTable.ColumnProperty(name="city", type="string"),
+                    glue.CfnTable.ColumnProperty(name="year", type="int"),
+                    glue.CfnTable.ColumnProperty(name="month", type="int"),
+                    glue.CfnTable.ColumnProperty(name="day", type="int")
+                ]
+            )
         )   
 
         # Outputs
