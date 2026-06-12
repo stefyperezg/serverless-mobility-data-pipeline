@@ -1,3 +1,40 @@
-.env
+
+**/test_event.py
+
+# AWS CDK
+cdk.out
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
 .venv/
-__pycache__
+venv/
+.env
+
+.env.*
+**/.env
+**/.env.*
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build/output
+dist/
+build/
+
+# Test/coverage
+.coverage
+.pytest_cache/
+htmlcov/
+
+# OS
+Thumbs.db

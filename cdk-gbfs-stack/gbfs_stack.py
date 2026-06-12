@@ -24,6 +24,7 @@ class GbfsStack(Stack):
         s3_prefix = os.environ["S3_PREFIX"]
         s3_bucket = os.environ["S3_BUCKET"]
         city_id = os.environ["CITY_ID"]
+        timezone = os.environ["TIMEZONE"]
         gbfs_url = os.environ["GBFS_URL"]
         selected_stations_file = os.environ["SELECTED_STATIONS_FILE"]
         glue_database_name = os.environ["GLUE_DATABASE_NAME"]
@@ -79,6 +80,7 @@ class GbfsStack(Stack):
                 "S3_BUCKET": bucket.bucket_name,
                 "S3_PREFIX": s3_prefix,
                 "CITY_ID": city_id,
+                "TIMEZONE": timezone,
                 "SELECTED_STATIONS_FILE": selected_stations_file
             },
             timeout=Duration.seconds(60),
@@ -138,11 +140,32 @@ class GbfsStack(Stack):
                     columns=[
                         glue.CfnTable.ColumnProperty(name="status_uuid", type="string"),
                         glue.CfnTable.ColumnProperty(name="station_id", type="string"),
+                        
                         glue.CfnTable.ColumnProperty(name="num_bikes_available", type="int"),
+                        glue.CfnTable.ColumnProperty(name="num_bikes_disabled", type="int"),
                         glue.CfnTable.ColumnProperty(name="num_docks_available", type="int"),
-                        glue.CfnTable.ColumnProperty(name="is_renting", type="boolean"),
-                        glue.CfnTable.ColumnProperty(name="is_returning", type="boolean"),
-                        glue.CfnTable.ColumnProperty(name="last_reported", type="bigint")
+                        glue.CfnTable.ColumnProperty(name="num_docks_disabled", type="int"),
+
+                        glue.CfnTable.ColumnProperty(name="is_charging_station", type="boolean"),
+                        glue.CfnTable.ColumnProperty(name="is_installed",         type="boolean"),
+                        glue.CfnTable.ColumnProperty(name="is_renting",         type="boolean"),
+                        glue.CfnTable.ColumnProperty(name="is_returning",       type="boolean"),
+                        
+                        glue.CfnTable.ColumnProperty(name="status",  type="string"),
+                        # glue.CfnTable.ColumnProperty(name="traffic", type="string"),
+
+                        # glue.CfnTable.ColumnProperty(name="vehicle_docks_available", type="string"),
+                        # glue.CfnTable.ColumnProperty(name="vehicle_types_available", type="string"),
+
+                        glue.CfnTable.ColumnProperty(name="last_reported", type="bigint"),
+
+                        ## New derived columns for visualization
+                        glue.CfnTable.ColumnProperty(name="event_date_local", type="string"),
+                        glue.CfnTable.ColumnProperty(name="event_time_local", type="string"),
+                        glue.CfnTable.ColumnProperty(name="event_hour_local", type="int"),
+
+
+
                     ],
                     location=f"s3://{bucket.bucket_name}/{s3_prefix}",
                     

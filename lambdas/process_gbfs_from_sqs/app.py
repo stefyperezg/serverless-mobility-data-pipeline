@@ -5,6 +5,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import io
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import _utils_ as utils
 
 SELECTED_STATION_IDS = utils.load_selected_stations()
@@ -13,13 +14,21 @@ def lambda_handler(event, context):
     s3_bucket = os.environ.get('S3_BUCKET')
     s3_prefix = os.environ.get('S3_PREFIX', 'gbfs_data/')
     city = os.environ.get('CITY_ID', 'unknown_city')
+    timezone_local = os.environ.get('TIMEZONE', "UTC")
+    
+    tz_local = ZoneInfo(timezone_local)
     s3 = boto3.client('s3')
 
     for record in event['Records']:
         raw_data = record['body']
 
         formatted_data = utils.parse_gbfs(raw_data)
-        filtered_data = utils.format_filter_stations(formatted_data, SELECTED_STATION_IDS)
+        filtered_data = utils.format_filter_stations(
+            formatted_data, 
+            SELECTED_STATION_IDS, 
+            tz_local
+        )
+
         
         # timestamp for partitioning
         now = datetime.now(timezone.utc)
